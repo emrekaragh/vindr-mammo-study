@@ -3,6 +3,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 import cv2
+from PIL import Image
 import numpy as np
 
 def find_largest_connected_component(image):
@@ -36,6 +37,10 @@ def crop_image(image, xmin, ymin, xmax, ymax):
     # Crop image with given bbox
     return image[ymin:ymax, xmin:xmax]
 
+def save_png(input_array: np.ndarray, target_file_path: Path):
+    image = input_array.astype(np.uint8)
+    image_pil = Image.fromarray(image)
+    image_pil.save(str(target_file_path))
 
 def process_one_image(image_path: Path, target_filepath: Path, overwrite: bool = False):
     try:
@@ -52,7 +57,7 @@ def process_one_image(image_path: Path, target_filepath: Path, overwrite: bool =
             
             cropped = crop_image(image, xmin, ymin, xmax, ymax)
             # Save the cropped component as PNG image
-            cv2.imwrite(str(target_filepath), cropped, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+            save_png(cropped, target_filepath)
     except Exception as e:
         print(image_path.name)
         print(e)
@@ -77,9 +82,8 @@ def main(input_dir: Path, output_dir: Path, overwrite: bool = False, num_workers
     source_target_filepaths = []
     for path in png_filepaths:
         source_filepath: Path = path
-        study_id = source_filepath.parent.name
-        image_id = source_filepath.name
-        target_filepath = output_dir.joinpath((study_id + '_' + image_id))
+        image_name = source_filepath.name
+        target_filepath = output_dir.joinpath((image_name))
         source_target_filepaths.append((source_filepath, target_filepath)) 
 
     # Create a thread pool with a maximum of num_workers threads
@@ -90,9 +94,10 @@ def main(input_dir: Path, output_dir: Path, overwrite: bool = False, num_workers
         executor.map(thread_fn, arguments)
 
     with open(output_dir.joinpath('image_info.csv'), 'w') as f:
-        f.write('study_id,image_id,roi_xmin,roi_ymin,roi_xmax,roi_ymax,width,height\n')
+        f.write('study_id, image_id, roi_xmin, roi_ymin, roi_xmax, roi_ymax, roi_width, roi_height\n')
         for info in image_info:
             f.write(','.join(str(item) for item in info)+'\n')
+
 
 if __name__ == '__main__':
     image_info = []
