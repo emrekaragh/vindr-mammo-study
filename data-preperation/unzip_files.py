@@ -121,14 +121,24 @@ def process_file(args):
     zip_filepath, output_dir, relative_path, overwrite = args
     process_one_file(zip_filepath=zip_filepath, output_dir=output_dir, relative_path=relative_path, overwrite=overwrite)
 
-def main(input_filepath: Path, output_dir: Path, overwrite: bool = False, num_workers = None):
+def main(input_filepath: Path, output_dir: Path, includes: Path = None, overwrite: bool = False, num_workers = None):
+    os.makedirs(output_dir, exist_ok=True)
+
+    if includes:
+        included_files = []
+        with open(includes, 'r') as file:
+            for line in file.readlines():
+                included_files.append(line.rstrip('\n'))
+
     with ZipFile(input_filepath, 'r') as zip_obj:
         relative_paths = [name for name in zip_obj.namelist()]
+
+    filtered_relative_paths = [rel_path for rel_path in relative_paths if Path(rel_path).name in included_files]
 
     # Create a thread pool with a maximum of num_workers threads
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         # Prepare the arguments for each file to be processed
-        arguments = [(input_filepath, output_dir, relative_path, overwrite) for relative_path in relative_paths]
+        arguments = [(input_filepath, output_dir, relative_path, overwrite) for relative_path in filtered_relative_paths]
         # Submit the tasks to the thread pool
         executor.map(process_file, arguments)
 
@@ -136,17 +146,20 @@ if __name__ == '__main__':
     parser = ArgumentParser('Unzip Zip Files (dicoms to be converted to png files)')
     parser.add_argument('-i', '--input-filepath', required=True, type=str, help='Zip file\'s path')
     parser.add_argument('-o', '--output-dir', required=True, type=str, help='Output direcotory')
+    parser.add_argument('--includes', required=False, type=str, help='Pass to file that contains filenames to be included')
     parser.add_argument('--overwrite', action='store_true', help='Pass this parameter to overwrite existing files')
-    parser.add_argument('-n', '--num-workers', required=False, type=int, default=60, help='Pass this parameter to overwrite existing files')
+    parser.add_argument('-n', '--num-workers', required=False, type=int, default=120, help='Pass this parameter to overwrite existing files')
 
     args = parser.parse_args()
     
     output_dir = Path(args.output_dir)
     input_filepath = Path(args.input_filepath)
-
+    includes = Path(args.includes)
     if not output_dir.is_dir:
         raise NotADirectoryError(output_dir)
     if not input_filepath.is_file:
         raise FileNotFoundError(input_filepath)
+    if includes and not includes.is_file:
+        raise FileNotFoundError(includes)
     
-    main(input_filepath, output_dir, args.overwrite, args.num_workers)
+    main(input_filepath, output_dir, includes, args.overwrite, args.num_workers)
