@@ -132,13 +132,13 @@ def main(input_filepath: Path, output_dir: Path, includes: Path = None, overwrit
 
     with ZipFile(input_filepath, 'r') as zip_obj:
         relative_paths = [name for name in zip_obj.namelist()]
-
-    filtered_relative_paths = [rel_path for rel_path in relative_paths if Path(rel_path).name in included_files]
+    if includes:
+        relative_paths = [rel_path for rel_path in relative_paths if Path(rel_path).name in included_files]
 
     # Create a thread pool with a maximum of num_workers threads
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         # Prepare the arguments for each file to be processed
-        arguments = [(input_filepath, output_dir, relative_path, overwrite) for relative_path in filtered_relative_paths]
+        arguments = [(input_filepath, output_dir, relative_path, overwrite) for relative_path in relative_paths]
         # Submit the tasks to the thread pool
         executor.map(process_file, arguments)
 
@@ -154,7 +154,7 @@ if __name__ == '__main__':
     
     output_dir = Path(args.output_dir)
     input_filepath = Path(args.input_filepath)
-    includes = Path(args.includes)
+    includes = Path(args.includes) if args.includes else None
     if not output_dir.is_dir:
         raise NotADirectoryError(output_dir)
     if not input_filepath.is_file:

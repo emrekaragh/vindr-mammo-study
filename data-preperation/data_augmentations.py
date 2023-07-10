@@ -1,3 +1,4 @@
+import os
 from argparse import ArgumentParser
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
@@ -60,12 +61,12 @@ def process_one_image(image_filepath: Path, output_dir: Path, birads: str, bboxe
     images = {}
     images['original'] = {'image_id': image_id, 'array': image, 'bboxes': bboxes}
 
-    images['h_flipped'] = {'image_id': (image_id + '_aug_hf'), 'array':horizontal_flip(image), 'bboxes': [bbox.flip_h(width, height) for bbox in bboxes]}
+    #images['h_flipped'] = {'image_id': (image_id + '_aug_hf'), 'array':horizontal_flip(image), 'bboxes': [bbox.flip_h(width, height) for bbox in bboxes]}
 
     augmented_images = {}
     for index, (alpha, beta) in enumerate(alpha_beta_valeus[birads]):
         for image in images.values():
-            new_image_id = (image['image_id'] + '_tr_' + str(index+1))
+            new_image_id = (image['image_id'] + '_aug_tr_' + str(index+1))
             rois = [bbox.to_roi() for bbox in image['bboxes']]
             new_array = transparency(image=image['array'], rois=rois, alpha=alpha, beta=beta)
             augmented_images[new_image_id] = {'image_id': new_image_id, 'array': new_array, 'bboxes': image['bboxes']}
@@ -77,26 +78,45 @@ def process_one_image(image_filepath: Path, output_dir: Path, birads: str, bboxe
 
 
 def thread_fn(args):
-    image_filepath, output_dir, birads, bboxes_str = args
-    process_one_image(image_filepath, output_dir, birads, bboxes_str)
+    try:
+        image_filepath, output_dir, birads, bboxes_str = args
+        process_one_image(image_filepath, output_dir, birads, bboxes_str)
+    except Exception as e:
+        print('Error on image:', image_filepath.name)
+        raise e
 
-def main(input_dir: Path, output_dir: Path, csv_filepath: Path, overwrite: bool = False, num_workers=None):    
+def main(input_dir: Path, output_dir: Path, csv_filepath: Path, overwrite: bool = False, num_workers=None):
+    os.makedirs(output_dir, exist_ok=True)
     df = pd.read_csv(csv_filepath)
-    #condition = df['image_id'].isin(['01fb871dc222684a9950609b62b76772', '02d253f51556e2e0af63525de2e9ff74', '01df962b078e38500bf9dd9969a50083'])
-    #df_filtered = df[condition]
-
+    existing_image_id_list = [str(file.absolute().stem).split('_')[0] for file in output_dir.rglob('*.png')]
+    print(len(existing_image_id_list))
+    print(existing_image_id_list)
     thread_args = []
     for index, row in df.iterrows():
-        filepath = input_dir.joinpath((row['image_id']+'.png'))
-        birads = row['finding_birads']
-        bboxes_str = row['bboxes']
-        thread_args.append((filepath,  output_dir, birads, bboxes_str))
+        if row['image_id'] not in existing_image_id_list or overwrite:
+            filepath = input_dir.joinpath((row['image_id']+'.png'))
+            birads = row['finding_birads']
+            bboxes_str = row['bboxes']
+            thread_args.append((filepath,  output_dir, birads, bboxes_str))
+        else:
+            print('already_exists')
 
     # Create a thread pool with a maximum of num_workers threads
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         # Submit the tasks to the thread pool
-        executor.map(thread_fn, thread_args)
-
+        futures = executor.map(thread_fn, thread_args)
+        for future in futures:
+            try:
+                # Access the result of the future (this will raise an exception if one occurred)
+                result = future.result()
+            except AttributeError as e:
+                #print("Exception occurred:", e)
+                pass
+            except Exception as e:
+                # Handle the exception here
+                print("Exception occurred:", e)
+                # You can also raise the exception again if you want to propagate it further
+                #raise e
 
 if __name__ == '__main__':    
     parser = ArgumentParser('Data Augmentation')
@@ -104,7 +124,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output-dir', required=True, type=str, help='Output direcotory to images be saved into')
     parser.add_argument('--info-csv', required=True, type=str, help='CSV file that contains information about how augmentation to be applied')
     parser.add_argument('--overwrite', action='store_true', help='Pass this parameter to overwrite existing files')
-    parser.add_argument('-n', '--num-workers', required=False, type=int, default=60,
+    parser.add_argument('-n', '--num-workers', required=False, type=int, default=120,
                         help='Number of workers can run parallely')
 
     args = parser.parse_args()

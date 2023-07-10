@@ -107,19 +107,19 @@ def process_one_image(image_path: Path, boxes: list, texts: list, labels: list):
     }))
 
 
-def visualize_tfrecords(record_path: Path, save_dir: Path, number_of_test: int):
+def visualize_tfrecords(record_path: Path, save_dir: Path, number_of_validation: int):
     """
     Visualizes tf random instances from given tfrecord file
     :param record_path: tfrecord path
     :param save_dir: Path to the folder where the visualized images will be saved
-    :param number_of_test: number of instances to be visualized
+    :param number_of_validation: number of instances to be visualized
     :return:
     """
     dataset = tf.data.TFRecordDataset(record_path)
     
     dataset = dataset.shuffle(buffer_size=1000)  # Adjust buffer_size according to your dataset size
     random_samples = []
-    for record in dataset.take(number_of_test):
+    for record in dataset.take(number_of_validation):
         random_samples.append(record)
     
     parsed_images_dataset = []
@@ -177,12 +177,12 @@ def write_tfrecord(df: pd.DataFrame, images_dir: Path, output_dir: Path, num_wor
     for index, row in df.iterrows():
         try: 
             image_path = images_dir.joinpath(row['image_id']+'.png')
-            boxes_xmin = ast.literal_eval(row['boxes_xmin'])
-            boxes_ymin = ast.literal_eval(row['boxes_ymin'])
-            boxes_xmax = ast.literal_eval(row['boxes_xmax'])
-            boxes_ymax = ast.literal_eval(row['boxes_ymax'])
+            boxes_xmin = ast.literal_eval(row['boxes_xmin'].replace('nan', ''))
+            boxes_ymin = ast.literal_eval(row['boxes_ymin'].replace('nan', ''))
+            boxes_xmax = ast.literal_eval(row['boxes_xmax'].replace('nan', ''))
+            boxes_ymax = ast.literal_eval(row['boxes_ymax'].replace('nan', ''))
             boxes = (boxes_xmin, boxes_ymin, boxes_xmax, boxes_ymax)
-            texts = ast.literal_eval(row['finding_birads'])
+            texts = ast.literal_eval(row['finding_birads'].replace('nan', ''))
             labels = [text_to_label[text] for text in texts]
             thread_args.append((image_path, boxes, texts, labels, tf_examples_queue))
         except Exception as e:
@@ -226,8 +226,9 @@ def split_df_into_pieces(df, num_train_pieces:int, num_validation_pieces:int):
         pieces.append(df_shuffled.iloc[(N-1)*rows_per_piece:])
         return pieces
     
-    train_pieces = random_split(df[df['split'] == 'training'], num_train_pieces)
-    validation_pieces = random_split(df[df['split'] == 'test'], num_validation_pieces)
+    shuffled_df = df.sample(frac=1).reset_index(drop=True)
+    train_pieces = random_split(shuffled_df[shuffled_df['split'] == 'training'], num_train_pieces)
+    validation_pieces = random_split(shuffled_df[shuffled_df['split'] == 'validation'], num_validation_pieces)
     
     return (train_pieces, validation_pieces)
 
@@ -306,7 +307,7 @@ if __name__ == '__main__':
                         help='Path to outputs to be saved. Needs to be folder, not file path', default='/data/emre/ms/vindr/dataset/tfrecords/')
     parser.add_argument('-v', '--visualize', required=False, type=int, default=10,
                         help='Number of images to be visualized. default:10')
-    parser.add_argument('-p', '--tfrecord-pieces', required=False, type=str, default='4,1',
+    parser.add_argument('-p', '--tfrecord-pieces', required=False, type=str, default='3,1',
                         help='How many pieces that tfrecords splits into, should bes passed as train_pieces,valid_pieces. Example: "2,3"')
     parser.add_argument('-n', '--num-workers', required=False, type=int, default=120,
                         help='Number of workers can run parallely')
@@ -324,3 +325,4 @@ if __name__ == '__main__':
         raise FileNotFoundError(annotations_csv_filepath)
 
     main(images_dir, output_dir, annotations_csv_filepath, args.visualize, num_train_pieces, num_validation_pieces, args.num_workers)
+    # TODO: check bbox error on  overlapping annotations, check 3_test visualizations
