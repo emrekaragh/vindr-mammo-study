@@ -35,9 +35,6 @@ def find_largest_connected_component(image):
     
     return (xmin, ymin, xmax, ymax)
 
-def breast_detector(image):
-    return (xmin, ymin, xmax, ymax)
-
 def crop_image(image, xmin, ymin, xmax, ymax):    
     # Crop image with given bbox
     return image[ymin:ymax, xmin:xmax]
@@ -77,12 +74,26 @@ def thread_process_one_image(args):
     image_path, target_filepath, method, overwrite = args
     process_one_image(image_path=image_path, target_filepath=target_filepath, method=method, overwrite=overwrite)
 
+def apply_filters(image):    
+    # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    clahe_image = clahe.apply(image)
+    
+    # Apply Median Filter
+    #median_filtered_image = cv2.medianBlur(clahe_image, ksize=5)  # Adjust ksize as needed
+    
+    # Apply Bilateral Filter
+    # bilateral_filtered_image = cv2.bilateralFilter(median_filtered_image, d=9, sigmaColor=75, sigmaSpace=75)
+    
+    return clahe_image
+
 def thread_crop_image(args):
     input_image_path, coords, target_filepath = args
-    image = cv2.imread(str(input_image_path))
+    image = cv2.imread(str(input_image_path), cv2.IMREAD_GRAYSCALE)
     xmin, ymin, xmax, ymax = coords
     cropped = crop_image(image, xmin, ymin, xmax, ymax)
-    save_png(cropped, target_filepath)
+    filter_applied = apply_filters(cropped)
+    save_png(filter_applied, target_filepath)
 
 def get_png_file_paths(wd: Path):
     png_files = []

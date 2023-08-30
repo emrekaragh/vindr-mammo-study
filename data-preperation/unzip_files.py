@@ -161,5 +161,13 @@ if __name__ == '__main__':
         raise FileNotFoundError(input_filepath)
     if includes and not includes.is_file:
         raise FileNotFoundError(includes)
-    
-    main(input_filepath, output_dir, includes, args.overwrite, args.num_workers)
+    overwrite = args.overwrite
+    num_workers = args.num_workers
+
+    # input_filepath = Path('vindr-mammo-a-large-scale-benchmark-dataset-for-computer-aided-detection-and-diagnosis-in-full-field-digital-mammography-1.0.0.zip')
+    # output_dir = Path('extracted_test')
+    # includes= None
+    # overwrite = False
+    # num_workers = 1
+
+    main(input_filepath, output_dir, includes, overwrite, num_workers)

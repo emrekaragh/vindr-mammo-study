@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
 
 def resave_png(filepath: Path):
-    image = Image.open(filepath)
+    image = Image.open(filepath).convert('1')
     image.save(filepath)
 
 def main(input_dir: Path, output_dir: Path, num_workers = None):
@@ -19,7 +19,7 @@ def main(input_dir: Path, output_dir: Path, num_workers = None):
 
 
 if __name__ == '__main__':
-    parser = ArgumentParser('Crop ROI')
+    parser = ArgumentParser('Repair Images')
     parser.add_argument('-i', '--input-dir', required=True, type=str, help='')
     parser.add_argument('-o', '--output-dir', required=True, type=str, help='Output direcotory')
     parser.add_argument('-n', '--num-workers', required=False, type=int, default=60, help='Pass this parameter to overwrite existing files')

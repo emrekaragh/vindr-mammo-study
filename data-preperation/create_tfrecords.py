@@ -136,7 +136,8 @@ def visualize_tfrecords(record_path: Path, save_dir: Path, number_of_validation:
         ymin = parsed_image['image/object/bbox/ymin'].numpy()
         xmax = parsed_image['image/object/bbox/xmax'].numpy()
         ymax = parsed_image['image/object/bbox/ymax'].numpy()
-        label = parsed_image['image/object/class/text'].numpy()
+        label = parsed_image['image/object/class/label'].numpy()
+        text = parsed_image['image/object/class/text'].numpy()
         name_last = name.decode("utf-8")
 
         image = Image.fromarray(tf.image.decode_image(image_bytes).numpy())
@@ -149,7 +150,8 @@ def visualize_tfrecords(record_path: Path, save_dir: Path, number_of_validation:
                 ymin *= height
                 ymax *= height
                 draw.rectangle(xy=[xmin, ymin, xmax, ymax], outline="red")
-                draw.text(((xmin+xmax)//2-20, ymin+10), label, fill=(255, 0, 0))
+                annot_text = '{}-{}'.format(str(label), text)
+                draw.text(((xmin+xmax)//2-20, ymin+10), (annot_text), fill=(255, 0, 0))
 
         save_path = save_dir.joinpath(name_last)
         image.save(save_path)
@@ -183,7 +185,7 @@ def write_tfrecord(df: pd.DataFrame, images_dir: Path, output_dir: Path, num_wor
             boxes_ymax = ast.literal_eval(row['boxes_ymax'].replace('nan', ''))
             boxes = (boxes_xmin, boxes_ymin, boxes_xmax, boxes_ymax)
             texts = ast.literal_eval(row['finding_birads'].replace('nan', ''))
-            labels = [text_to_label[text] for text in texts]
+            labels = [1 for text in texts] #One class classification , for multiclass: [text_to_label[text] for text in texts]
             thread_args.append((image_path, boxes, texts, labels, tf_examples_queue))
         except Exception as e:
             error_message = traceback.format_exc()
@@ -228,7 +230,7 @@ def split_df_into_pieces(df, num_train_pieces:int, num_validation_pieces:int):
     
     shuffled_df = df.sample(frac=1).reset_index(drop=True)
     train_pieces = random_split(shuffled_df[shuffled_df['split'] == 'training'], num_train_pieces)
-    validation_pieces = random_split(shuffled_df[shuffled_df['split'] == 'validation'], num_validation_pieces)
+    validation_pieces = random_split(shuffled_df[shuffled_df['split'] == 'test'], num_validation_pieces)
     
     return (train_pieces, validation_pieces)
 
@@ -302,7 +304,7 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--annotations-csv', required=True, type=str,
                         help='Path to csv file which contains annotations')
     parser.add_argument('-i', '--images-dir', required=True, type=str,
-                        help='Folder path of image files', default='/data/emre/ms/vindr/dataset/tfrecord_images/')
+                        help='Folder path of image files', default='/data/emre/ms/vindr/dataset/cropped/')
     parser.add_argument('-o', '--output-dir', required=True, type=str,
                         help='Path to outputs to be saved. Needs to be folder, not file path', default='/data/emre/ms/vindr/dataset/tfrecords/')
     parser.add_argument('-v', '--visualize', required=False, type=int, default=10,
