@@ -3,3 +3,17 @@
 */__pycache__
 */.pyc
 *.pt
+*.zip
+*/*.zip
+dataset/*.jpg
+dataset/*.png
+dataset/*.tfrecord
+dataset/*.cache
+dataset/*.zip
+model/tf_od_api_2
+model/yolo
+model/*/visualizations
+model/*/labels
+model/*.pt
+model/roi_detector_model/datasets
+model/roi_detector_model/yolov5
