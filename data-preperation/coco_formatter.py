@@ -1,11 +1,11 @@
-from typing import List
+from typing import List, Union
 
 from pydantic import BaseModel
 
 class Category(BaseModel):
     id: int
     name: str
-    supercategory: str | None = None
+    supercategory: Union[str, None] = None
 
 class License(BaseModel):
     id: int = 1

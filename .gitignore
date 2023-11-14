@@ -17,3 +17,4 @@ model/*/labels
 model/*.pt
 model/roi_detector_model/datasets
 model/roi_detector_model/yolov5
+.python-version
